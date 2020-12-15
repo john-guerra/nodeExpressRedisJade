@@ -14,11 +14,17 @@ router.get("/songs", async (req, res) => {
 
   try {
     const songs = await myDB.getSongs(page);
-    // console.log("got songs", songs);
+
+    // Save the session messages for display, then delete them
+    const err = req.session.err;
+    const msg = req.session.msg;
+    req.session.err = "";
+    req.session.msg = "";
+
     res.render("songs", {
       songs: songs,
-      err: req.session.err,
-      msg: req.session.msg,
+      err: err,
+      msg: msg,
     });
   } catch (err) {
     console.log("got error", err);
@@ -29,10 +35,10 @@ router.get("/songs", async (req, res) => {
 router.post("/songs/delete", async (req, res) => {
   try {
     const song = req.body;
-    const { lastID, changes } = await myDB.deleteSong(song);
+    const result = await myDB.deleteSong(song);
 
-    console.log(lastID, changes);
-    if (changes === 0) {
+    console.log(result);
+    if (result !== 1) {
       req.session.err = `Couldn't delete the object ${song.Name}`;
       res.redirect("/songs");
       return;
@@ -53,15 +59,16 @@ router.post("/songs/update", async (req, res) => {
   try {
     const song = req.body;
     const result = await myDB.updateSong(song);
+    console.log("update", result);
 
-    if (result.result.ok) {
+    if (result === "OK") {
       req.session.msg = "Song Updated";
       res.redirect("/songs");
-      return;
     } else {
       req.session.err = "Error updating";
       res.redirect("/songs");
     }
+    return;
   } catch (err) {
     console.log("got error update", err);
     req.session.err = err.message;
@@ -74,9 +81,15 @@ router.post("/songs/create", async (req, res) => {
 
   try {
     console.log("Create song", song);
-    await myDB.createSong(song, res);
-    req.session.msg = "Song created";
-    res.redirect("/songs");
+    const result = await myDB.createSong(song, res);
+    if (result === 1) {
+      req.session.msg = "Song created";
+      res.redirect("/songs");
+    } else {
+      req.session.err = "There was an error creating the song";
+      res.redirect("/songs");
+    }
+    return;
   } catch (err) {
     console.log("Got error create", err);
     req.session.err = err.message;
